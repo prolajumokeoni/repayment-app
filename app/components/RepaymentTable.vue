@@ -33,14 +33,9 @@ onMounted(() => {
   loadLoans()
 })
 
-
-const totalOutstanding = computed(() => {
-  let total = 0
-  for (const loan of loans.value) {
-    total += parseFloat(loan.amount_kobo) / 100
-  }
-  return total.toFixed(2)
-})
+const totalOutstanding = computed(() =>
+  (summary.value?.outstanding_kobo ?? 0) / 100
+)
 
 const overdueCount = computed(() =>
   loans.value.filter(l => l.due_date < new Date().toISOString()).length
@@ -51,6 +46,7 @@ const visibleLoans = computed(() => loans.value)
 function formatNaira(v) {
   return '₦' + v.toLocaleString()
 }
+
 
 async function pay(loan) {
   await $fetch(`/api/loans/${loan.id}/repay`, { method: 'POST' })

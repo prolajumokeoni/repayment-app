@@ -34,3 +34,12 @@
 - **My fix:** Renamed `expandedRow` to `selectedLoanId` and stored `loan.id` instead of the array index. Renamed `expandedLoan` computed to `selectedLoan` and renamed `expandRow` to `openModal` — names now describe what they actually do. `:key` on the row changed from `i` to `loan.id`. If the selected loan is filtered out the modal closes rather than showing random data. Also moved the `label` computation into `loadLoans` so loans carry their label on the original reactive object — this eliminated a redundant `.find()` call since `openModal` now receives the original directly and can set `loan.schedule` without needing to look up the source object again. `visibleLoans` simplified to just `loans.value`.
 
 ---
+
+### 4. Outstanding total: wrong value and wrong format
+- **Severity:** Medium
+- **Who it hurts and how:** Finance and ops — the headline figure they use to track portfolio exposure was both incorrect and formatted differently from every other amount on screen.
+- **Cause (value):** `totalOutstanding` summed `loans.value`, which is the currently filtered list. Filtering by status or searching silently dropped loans from the total. The component already fetches `/api/customers/:id/summary` whose `outstanding_kobo` is the authoritative server-side figure.
+- **Cause (format):** `total.toFixed(2)` returns a string. `formatNaira(v)` calls `v.toLocaleString()` — on a `String`, `toLocaleString()` is inherited from `Object` and returns the string unchanged with no thousands separators. Table rows passed a number so they formatted correctly; the header total did not.
+- **My fix:** `totalOutstanding` returns `(summary.value?.outstanding_kobo ?? 0) / 100` — a number from the server's authoritative integer. `formatNaira` now receives a number in both places.
+
+---
