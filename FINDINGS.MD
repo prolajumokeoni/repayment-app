@@ -9,16 +9,6 @@
 - **My fix:** Replace `v-html` with `{{ loan.description }}`. Vue escapes the value; the HTML is displayed as literal text.
 
 
-
-### 2. Memory leak — `setInterval` and `addEventListener` never cleaned up
-- **Severity:** High
-- **Who it hurts and how:** Ops users who leave the repayments screen open all day. Every component mount added a new interval and a new resize listener without removing the old ones. By afternoon, hundreds of stacked intervals were all firing `loadLoans` in parallel, each making network requests and triggering Vue re-renders — which is exactly the sluggishness and fan noise ops reported.
-- **Cause:** `setInterval(loadLoans, 5000)` discarded its return handle so `clearInterval` could never be called. `window.addEventListener('resize', handleResize)` had no corresponding `removeEventListener`.
-- **My fix:** Stored the interval handle in `pollInterval` so it can be cancelled. Added `onUnmounted` — a Vue lifecycle hook that runs when the component is removed from the screen (user navigates away). Inside it, `clearInterval(pollInterval)` stops the timer and `window.removeEventListener('resize', handleResize)` removes the resize listener. Whatever is started in `onMounted` must be cleaned up in `onUnmounted`, otherwise it keeps running in the background consuming memory even after the user has left the page. I confirmed the issue by watching the network tab in Chrome DevTools and seeing `/api/loans/:id/schedule` firing continuously for all 25 loans without any user interaction.
-
----
-
-
 ### 2. Memory leak — `setInterval` and `addEventListener` never cleaned up
 - **Severity:** High
 - **Who it hurts and how:** Ops users who leave the repayments screen open all day. Every component mount added a new interval and a new resize listener without removing the old ones. By afternoon, hundreds of stacked intervals were all firing `loadLoans` in parallel, each making network requests and triggering Vue re-renders — which is exactly the sluggishness and fan noise ops reported.
@@ -41,5 +31,15 @@
 - **Cause (value):** `totalOutstanding` summed `loans.value`, which is the currently filtered list. Filtering by status or searching silently dropped loans from the total. The component already fetches `/api/customers/:id/summary` whose `outstanding_kobo` is the authoritative server-side figure.
 - **Cause (format):** `total.toFixed(2)` returns a string. `formatNaira(v)` calls `v.toLocaleString()` — on a `String`, `toLocaleString()` is inherited from `Object` and returns the string unchanged with no thousands separators. Table rows passed a number so they formatted correctly; the header total did not.
 - **My fix:** `totalOutstanding` returns `(summary.value?.outstanding_kobo ?? 0) / 100` — a number from the server's authoritative integer. `formatNaira` now receives a number in both places.
+
+---
+
+---
+
+### 5. `overdueCount` includes paid loans with past due dates
+- **Severity:** Low
+- **Who it hurts and how:** Ops leads reading the headline overdue count — it was always inflated by paid loans whose due dates happened to be in the past.
+- **Cause:** `loans.value.filter(l => l.due_date < new Date().toISOString())` counts any loan with a past due date regardless of status. Two paid loans in the dataset have past due dates so the count was always 2 too high.
+- **My fix:** Filter by `l.status === 'overdue'` — the authoritative field set by the backend.
 
 ---

@@ -15,7 +15,7 @@ async function openModal(loan) {
 const lastSyncedAt = ref(new Date().toLocaleTimeString())
 
 const { data: customer } = await useFetch(`/api/customers/${props.customerId}`)
-const { data: summary } = await useFetch(`/api/customers/${props.customerId}/summary`)
+const { data: summary, refresh: refreshSummary } = await useFetch(`/api/customers/${props.customerId}/summary`)
 const { data: rates } = await useFetch('/api/rates')
 
 async function loadLoans() {
@@ -23,6 +23,7 @@ async function loadLoans() {
   isLoading.value = true
   const res = await $fetch('/api/loans', { params: { ...filters } })
   loans.value = res.items.map(l => ({ ...l, label: `${l.customer_name} — ${l.reference}` }))
+  await refreshSummary()
   lastSyncedAt.value = new Date().toLocaleTimeString()
   isLoading.value = false
 }
@@ -33,12 +34,13 @@ onMounted(() => {
   loadLoans()
 })
 
+
 const totalOutstanding = computed(() =>
   (summary.value?.outstanding_kobo ?? 0) / 100
 )
 
 const overdueCount = computed(() =>
-  loans.value.filter(l => l.due_date < new Date().toISOString()).length
+  loans.value.filter(l => l.status === 'overdue').length
 )
 
 const visibleLoans = computed(() => loans.value)
@@ -47,10 +49,13 @@ function formatNaira(v) {
   return '₦' + v.toLocaleString()
 }
 
-
 async function pay(loan) {
-  await $fetch(`/api/loans/${loan.id}/repay`, { method: 'POST' })
-  loan.status = 'paid'
+  try {
+    await $fetch(`/api/loans/${loan.id}/repay`, { method: 'POST' })
+    loan.status = 'paid'
+  } catch {
+    alert('Payment failed — please try again.')
+  }
 }
 </script>
 
@@ -63,7 +68,7 @@ async function pay(loan) {
     </header>
 
     <input v-model="filters.search" placeholder="Search customer or reference" />
-    <button @click="loadLoans" :disabled="isLoading">Refresh</button>
+    <button @click="filters.search = ''; filters.status = 'all'" :disabled="isLoading">Refresh</button>
 
     <div v-if="isLoading">Loading…</div>
 
