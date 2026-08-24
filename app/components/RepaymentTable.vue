@@ -92,7 +92,6 @@ async function pay(loan) {
       <p>Status: {{ selectedLoan.status }}</p>
       <p>Due: {{ selectedLoan.schedule?.next_due }}</p>
       <p>Installment: {{ formatNaira(selectedLoan.schedule?.installment_amount_kobo / 100) }}</p>
-      <p>Installments paid: {{ selectedLoan.schedule?.installments_paid }} / {{ selectedLoan.schedule?.installments_total }}</p>
     </div>
   </div>
 </template>
